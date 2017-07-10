@@ -9,12 +9,18 @@ repository = "https://github.com/oli-obk/camera_capture"
 
 build = "build.rs"
 
+[features]
+default = ["rgb-format"]
+
+luma-format = []
+rgb-format = []
+rgba-format = []
+
 [build-dependencies]
 pkg-config = "0.3.8"
 
 [dependencies]
 image = "0.14.0"
-rayon = "0.8.1"
 
 [target.'cfg(windows)'.dependencies]
 escapi = "3.0.5"

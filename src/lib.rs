@@ -6,9 +6,6 @@ extern crate rscam;
 #[macro_use]
 extern crate lazy_static;
 extern crate image;
-extern crate rayon;
-
-use rayon::prelude::*;
 
 #[cfg(unix)]
 use std::default::Default;
@@ -170,39 +167,101 @@ impl Builder {
 
 #[cfg(unix)]
 impl Iterator for ImageIterator {
+    #[cfg(feature = "luma-format")]
+    type Item = image::ImageBuffer<image::Luma<u8>, Frame>;
+    #[cfg(feature = "rgb-format")]
     type Item = image::ImageBuffer<image::Rgb<u8>, Frame>;
+    #[cfg(feature = "rgba-format")]
+    type Item = image::ImageBuffer<image::Rgba<u8>, Frame>;
     fn next(&mut self) -> Option<Self::Item> {
         match self.camera.capture() {
-            Ok(frame) => image::ImageBuffer::from_raw(frame.resolution.0, frame.resolution.1, frame),
+            Ok(frame) => image::ImageBuffer::from_raw(frame.resolution.0, frame.resolution.1, convert(&frame, wdt as usize, hgt as usize)),
             Err(_) => None,
         }
     }
 }
 
+
 #[cfg(windows)]
 impl Iterator for ImageIterator {
+    #[cfg(feature = "luma-format")]
+    type Item = image::ImageBuffer<image::Luma<u8>, Frame>;
+    #[cfg(feature = "rgb-format")]
     type Item = image::ImageBuffer<image::Rgb<u8>, Frame>;
+    #[cfg(feature = "rgba-format")]
+    type Item = image::ImageBuffer<image::Rgba<u8>, Frame>;
+
     fn next(&mut self) -> Option<Self::Item> {
         let wdt = self.camera.width();
         let hgt = self.camera.height();
         match self.camera.capture(50) {
-            Ok(frame) => {
-                let buf: Vec<u8> = (&frame)
-                                    .par_chunks(4)
-                                    .fold(|| Vec::with_capacity(3), |mut data, elem| {
-                                        data.push(elem[2]);
-                                        data.push(elem[1]);
-                                        data.push(elem[0]);
-                                        data
-                                    })
-                                    .reduce(|| Vec::new(),
-                                            |mut vec1, mut vec2| { 
-                                        vec1.append(&mut vec2); 
-                                        vec1 
-                                    });
-                image::ImageBuffer::from_raw(wdt, hgt, buf)
+            Ok(frame) => {               
+                image::ImageBuffer::from_raw(wdt, hgt, convert(frame, wdt as usize, hgt as usize))
             },
             Err(_) => None,
         }
     }
+}
+
+#[cfg(all(windows, feature = "luma-format"))]
+fn convert(frame: &[u8], width: usize, height: usize) -> Vec<u8> {
+    let len = width * height;
+    let mut buf = vec![0; len];
+    for i in 0..len { 
+        buf[i] = (0.299 * frame[i*3] as f32 + 0.587 * frame[i*3 + 1] as f32 + 0.144 * frame[i*3 + 2] as f32) as u8
+    }
+    buf
+}
+
+#[cfg(all(unix, feature = "luma-format"))]
+fn convert(frame: &[u8], width: usize, height: usize) -> Vec<u8> {
+    let len = width * height;
+    let mut buf = vec![0; len];
+    for i in 0..len { 
+        buf[i] = (0.299 * frame[i*4 + 2] as f32 + 0.587 * frame[i*4 + 1] as f32 + 0.144 * frame[i*4] as f32) as u8
+    }
+    buf
+}
+
+#[cfg(all(windows, feature = "rgb-format"))]
+fn convert(frame: &[u8], width: usize, height: usize) -> Vec<u8> {
+    let len = width * height;
+    let mut buf = vec![0; len * 3];
+    for i in 0..len { 
+        buf[i*3 + 2] = frame[i*4]; 
+        buf[i*3 + 1] = frame[i*4 + 1]; 
+        buf[i*3] = frame[i*4 + 2]; 
+    }
+    buf
+}
+
+#[cfg(all(unix, feature = "rgb-format"))]
+fn convert(frame: &[u8], width: usize, height: usize) -> Vec<u8> {
+    frame
+}
+
+#[cfg(all(windows, feature = "rgba-format"))]
+fn convert(frame: &[u8], width: usize, height: usize) -> Vec<u8> {
+    let len = width * height;
+    let mut buf = vec![0; len * 4];
+    for i in 0..len { 
+        buf[i*4 + 3] = 255;
+        buf[i*4 + 2] = frame[i*4]; 
+        buf[i*4 + 1] = frame[i*4 + 1]; 
+        buf[i*4] = frame[i*4 + 2];
+    }
+    buf
+}
+
+#[cfg(all(unix, feature = "rgba-format"))]
+fn convert(frame: &[u8], width: usize, height: usize) -> Vec<u8> {
+    let len = width * height;
+    let mut buf = vec![0; len * 4];
+    for i in 0..len { 
+        buf[i*4 + 3] = 255;
+        buf[i*4 + 2] = frame[i*3 + 2]; 
+        buf[i*4 + 1] = frame[i*3 + 1]; 
+        buf[i*4] = frame[i*3];
+    }
+    buf
 }
