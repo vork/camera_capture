@@ -25,6 +25,8 @@ pub struct ImageIterator {
 pub struct Builder {
     #[cfg(unix)]
     fps: (u32, u32),
+    #[cfg(windows)]
+    fps: f64,
     resolution: (u32, u32),
     #[cfg(unix)]
     camera: rscam::Camera,
@@ -46,6 +48,7 @@ pub fn create(i: u32) -> std::io::Result<Builder> {
     Ok(Builder {
         camera_id: i,
         resolution: (640, 480),
+        fps: 10.0 as f64,
     })
 }
 
@@ -97,7 +100,8 @@ impl Builder {
         }
     }
     #[cfg(windows)]
-    pub fn fps(self, _fps: f64) -> Result<Self, Error> {
+    pub fn fps(mut self, _fps: f64) -> Result<Self, Error> {
+        self.fps = _fps;
         Ok(self)
     }
     #[cfg(unix)]
@@ -152,7 +156,7 @@ impl Builder {
         lazy_static! {
             static ref CAMERAS: escapi::Cameras = escapi::init().unwrap();
         }
-        match CAMERAS.init(self.camera_id, self.resolution.0, self.resolution.1, 10) {
+        match CAMERAS.init(self.camera_id, self.resolution.0, self.resolution.1, self.fps) {
             Ok(cam) => Ok(ImageIterator {
                 camera: cam,
             }),
