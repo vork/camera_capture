@@ -13,15 +13,17 @@ build = "build.rs"
 pkg-config = "0.3.8"
 
 [dependencies]
-image = "0.7"
+image = "0.14.0"
+rayon = "0.8.1"
 
 [target.'cfg(windows)'.dependencies]
 escapi = "3.0.5"
-lazy_static = "0.2.0"
+lazy_static = "0.2.8"
 
 [target.'cfg(unix)'.dependencies]
 rscam = "0.5.2"
 
 [dev-dependencies]
-piston_window = "0.40"
-piston-texture = "0.4"
+piston_window = "0.67.0"
+piston-texture = "0.5.0"
+fps_counter = "0.2.0"

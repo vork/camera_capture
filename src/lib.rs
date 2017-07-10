@@ -6,6 +6,9 @@ extern crate rscam;
 #[macro_use]
 extern crate lazy_static;
 extern crate image;
+extern crate rayon;
+
+use rayon::prelude::*;
 
 #[cfg(unix)]
 use std::default::Default;
@@ -184,13 +187,19 @@ impl Iterator for ImageIterator {
         let hgt = self.camera.height();
         match self.camera.capture(50) {
             Ok(frame) => {
-                let len = (wdt*hgt) as usize;
-                let mut buf = vec![0; len*3];
-                for i in 0..len {
-                    buf[i*3 + 2] = frame[i*4];
-                    buf[i*3 + 1] = frame[i*4 + 1];
-                    buf[i*3] = frame[i*4 + 2];
-                }
+                let buf: Vec<u8> = (&frame)
+                                    .par_chunks(4)
+                                    .fold(|| Vec::with_capacity(3), |mut data, elem| {
+                                        data.push(elem[2]);
+                                        data.push(elem[1]);
+                                        data.push(elem[0]);
+                                        data
+                                    })
+                                    .reduce(|| Vec::new(),
+                                            |mut vec1, mut vec2| { 
+                                        vec1.append(&mut vec2); 
+                                        vec1 
+                                    });
                 image::ImageBuffer::from_raw(wdt, hgt, buf)
             },
             Err(_) => None,
