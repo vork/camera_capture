@@ -156,7 +156,7 @@ impl Builder {
         lazy_static! {
             static ref CAMERAS: escapi::Cameras = escapi::init().unwrap();
         }
-        match CAMERAS.init(self.camera_id, self.resolution.0, self.resolution.1, self.fps) {
+        match CAMERAS.init(self.camera_id, self.resolution.0, self.resolution.1, self.fps as u32) {
             Ok(cam) => Ok(ImageIterator {
                 camera: cam,
             }),
